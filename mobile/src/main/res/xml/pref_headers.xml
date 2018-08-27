@@ -4,7 +4,12 @@
 
     <header
         android:fragment="com.prowolf.morsemessenger.SettingsActivity$GeneralPreferenceFragment"
-        android:icon="@drawable/ic_info_black_24dp"
+        android:icon="@drawable/ic_settings_white_32dp"
         android:title="@string/pref_header_general" />
+
+    <header
+        android:fragment="com.prowolf.morsemessenger.SettingsActivity$InfoPreferenceFragment"
+        android:icon="@drawable/ic_info_white_32dp"
+        android:title="@string/pref_header_info" />
 
 </preference-headers>

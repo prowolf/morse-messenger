@@ -3,11 +3,14 @@ package com.prowolf.morsemessenger;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -17,6 +20,9 @@ import android.view.View.OnTouchListener;
 import com.prowolf.shared.Client;
 import com.prowolf.shared.MorseGestureDetector;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 public class MainActivity extends Activity {
 
     private static final long[] pattern = {0, 1000};
@@ -25,14 +31,18 @@ public class MainActivity extends Activity {
     ToneGenerator toneGenerator;
     private GestureDetector gestureDetector;
     private MorseGestureDetector morseGestureDetector;
+    private SharedPreferences settings;
+    private Thread networking;
+    private Client client;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        final Client client = new Client("tcp://192.168.1.2:8484");
-        Thread networking = new Thread(client);
+        settings = PreferenceManager.getDefaultSharedPreferences(MainActivity.this.getApplicationContext());
+        client = new Client(settings.getString("host", "tcp://127.0.0.1:8484"));
+        networking = new Thread(client);
         networking.start();
         morseGestureDetector = new MorseGestureDetector();
         gestureDetector = new GestureDetector(morseGestureDetector);
@@ -50,10 +60,10 @@ public class MainActivity extends Activity {
             public boolean onTouch(View view, MotionEvent event) {
                 gestureDetector.onTouchEvent(event);
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    activate();
+                    activate(true);
                     client.sendMessage("t");
                 } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    deactivate();
+                    deactivate(true);
                     client.sendMessage("f");
                     view.performClick();
                 }
@@ -67,9 +77,9 @@ public class MainActivity extends Activity {
                 String line = client.getNextMessage();
                 if (line != null) {
                     if (line.equals("t")) {
-                        activate();
+                        activate(false);
                     } else if (line.equals("f")) {
-                        deactivate();
+                        deactivate(false);
                     }
                 }
                 if (morseGestureDetector.shouldSettings) {
@@ -81,18 +91,43 @@ public class MainActivity extends Activity {
                 handler.post(this);
             }
         });
-        toneGenerator = new ToneGenerator(ToneGenerator.TONE_DTMF_A, 50);
     }
 
-    private void activate() {
-        panel.setBackgroundColor(getResources().getColor(android.R.color.white));
-        vibrator.vibrate(pattern, 0);
-        toneGenerator.startTone(ToneGenerator.TONE_CDMA_ABBR_ALERT);
+    protected void onResume(){
+        super.onResume();
+        if (client.getConnection().toString() != settings.getString("host", "tcp://127.0.0.1:8484")) {
+            networking.interrupt();
+            client = new Client(settings.getString("host", "tcp://127.0.0.1:8484"));
+            networking = new Thread(client);
+            networking.start();
+        }
     }
 
-    private void deactivate() {
-        panel.setBackgroundColor(getResources().getColor(android.R.color.black));
-        vibrator.cancel();
-        toneGenerator.stopTone();
+    private void activate(boolean me) {
+        String setting = settings.getString("flash", "Me");
+        if ((setting.equals("Me") == me || setting.equals("All"))&& !setting.equals("Off"))
+            panel.setBackgroundColor(getResources().getColor(android.R.color.white));
+        setting = settings.getString("vibrate", "Others");
+        if ((setting.equals("Me") == me || setting.equals("All"))&& !setting.equals("Off"))
+            vibrator.vibrate(pattern, 0);
+        setting = settings.getString("sound", "Others");
+        if ((setting.equals("Me") == me || setting.equals("All"))&& !setting.equals("Off")) {
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, ToneGenerator.MAX_VOLUME);
+            toneGenerator.startTone(ToneGenerator.TONE_CDMA_DIAL_TONE_LITE);
+        }
+    }
+
+    private void deactivate(boolean me) {
+        String setting = settings.getString("flash", "Me");
+        if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off"))
+            panel.setBackgroundColor(getResources().getColor(android.R.color.black));
+        setting = settings.getString("vibrate", "Others");
+        if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off"))
+            vibrator.cancel();
+        setting = settings.getString("sound", "Others");
+        if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off")) {
+            toneGenerator.stopTone();
+            toneGenerator.release();
+        }
     }
 }

@@ -38,14 +38,13 @@ public class SettingsActivity extends PreferenceActivity {
 
         // Trigger the listener immediately with the preference's
         // current value.
-        if (preference instanceof CheckBoxPreference)
-        {
+        if (preference instanceof CheckBoxPreference) {
             // Trigger the listener immediately with the preference's
             // current value.
-            sBindPreferenceSummaryToValueListener.onPreferenceChange(
-                    preference,
-                    PreferenceManager.getDefaultSharedPreferences(
-                            preference.getContext()).getBoolean(preference.getKey(),true));
+            sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
+                    PreferenceManager
+                            .getDefaultSharedPreferences(preference.getContext())
+                            .getBoolean(preference.getKey(),true));
         } else {
             sBindPreferenceSummaryToValueListener.onPreferenceChange(preference,
                     PreferenceManager
@@ -79,9 +78,20 @@ public class SettingsActivity extends PreferenceActivity {
         loadHeadersFromResource(R.xml.pref_headers, target);
     }
 
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
     protected boolean isValidFragment(String fragmentName) {
         return PreferenceFragment.class.getName().equals(fragmentName)
-                || GeneralPreferenceFragment.class.getName().equals(fragmentName);
+                || GeneralPreferenceFragment.class.getName().equals(fragmentName)
+                || InfoPreferenceFragment.class.getName().equals(fragmentName);
     }
 
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
@@ -94,7 +104,31 @@ public class SettingsActivity extends PreferenceActivity {
 
             bindPreferenceSummaryToValue(findPreference("host"));
             bindPreferenceSummaryToValue(findPreference("flash"));
+            bindPreferenceSummaryToValue(findPreference("vibrate"));
             bindPreferenceSummaryToValue(findPreference("sound"));
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
+            int id = item.getItemId();
+            if (id == android.R.id.home) {
+                startActivity(new Intent(getActivity(), SettingsActivity.class));
+                return true;
+            }
+            return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    public static class InfoPreferenceFragment extends PreferenceFragment {
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.pref_info);
+            setHasOptionsMenu(true);
+
+            bindPreferenceSummaryToValue(findPreference("author"));
+            bindPreferenceSummaryToValue(findPreference("version"));
         }
 
         @Override

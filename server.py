@@ -21,14 +21,16 @@ def broadcast(data):
 
 
 def handler(current_connection, address):
-    print(current_connection)
+    print(address[0] + " Joined!")
     with clients_lock:
+        if current_connection in clients:
+            clients.remove(current_connection)
         clients.add(current_connection)
     try:
         while True:
             data = current_connection.recv(2048)
             line = data.decode('UTF-8').strip()
-            print(data)
+            print(address[0] + ": " + str(data))
             if line in commands:
                 broadcast_except((line + "\n").encode(), [current_connection])
             elif not data:
@@ -38,6 +40,7 @@ def handler(current_connection, address):
     finally:
         with clients_lock:
             clients.remove(current_connection)
+        print(address[0] + " Left!")
 
 
 def listen():

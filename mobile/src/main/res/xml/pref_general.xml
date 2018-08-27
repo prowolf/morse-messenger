@@ -1,28 +1,43 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <EditTextPreference
-        android:defaultValue="@string/pref_default_host"
-        android:hint="@string/pref_hint_host"
-        android:inputType="textUri"
-        android:key="host"
-        android:maxLines="1"
-        android:selectAllOnFocus="true"
-        android:singleLine="true"
-        android:title="@string/pref_title_host" />
+    <PreferenceCategory
+        android:title="@string/pref_title_connection"
+        android:key="output">
+        <EditTextPreference
+            android:defaultValue="@string/pref_default_host"
+            android:hint="@string/pref_hint_host"
+            android:inputType="textUri"
+            android:key="host"
+            android:maxLines="1"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/pref_title_host" />
+        </PreferenceCategory>
 
-    <CheckBoxPreference
-        android:defaultValue="true"
-        android:key="sound"
-        android:title="@string/pref_title_sound" />
+        <PreferenceCategory
+            android:title="@string/pref_title_output"
+            android:key="output">
+            <ListPreference
+                android:defaultValue="Me"
+                android:key="flash"
+                android:title="@string/pref_title_flash"
+                android:entries="@array/pref_entries_lists"
+                android:entryValues="@array/pref_entry_values_lists" />
 
-    <CheckBoxPreference
-        android:defaultValue="true"
-        android:key="flash"
-        android:title="@string/pref_title_flash" />
+            <ListPreference
+                android:defaultValue="Others"
+                android:key="vibrate"
+                android:title="@string/pref_title_vibrate"
+                android:entries="@array/pref_entries_lists"
+                android:entryValues="@array/pref_entry_values_lists" />
 
-    <CheckBoxPreference
-        android:defaultValue="true"
-        android:key="vibrate"
-        android:title="@string/pref_title_vibrate" />
+            <ListPreference
+                android:defaultValue="Others"
+                android:key="sound"
+                android:title="@string/pref_title_sound"
+                android:entries="@array/pref_entries_lists"
+                android:entryValues="@array/pref_entry_values_lists" />
+
+    </PreferenceCategory>
 
 </PreferenceScreen>

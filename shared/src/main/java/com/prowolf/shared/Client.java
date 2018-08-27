@@ -152,4 +152,8 @@ public class Client implements Runnable {
         isRunning = running;
     }
 
+    public URI getConnection() {
+        return connection;
+    }
+
 }

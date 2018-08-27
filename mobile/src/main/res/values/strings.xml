@@ -5,16 +5,45 @@
     <!-- Strings related to Settings -->
 
     <!-- General settings -->
+
     <string name="pref_header_general">General</string>
 
-    <string name="pref_title_host">Host URL</string>
+    <string name="pref_title_connection">Connection</string>
+
+    <string name="pref_title_host">Host URI</string>
     <string name="pref_default_host">tcp://127.0.0.1:8484</string>
     <string name="pref_hint_host">tcp://127.0.0.1:8484</string>
+
+    <string name="pref_title_output">Output</string>
+
+    <string-array name="pref_entries_lists">
+        <item>Me</item>
+        <item>Others</item>
+        <item>All</item>
+        <item>Off</item>
+    </string-array>
+
+    <string-array name="pref_entry_values_lists">
+        <item>Me</item>
+        <item>Others</item>
+        <item>All</item>
+        <item>Off</item>
+    </string-array>
 
     <string name="pref_title_flash">Flash Screen</string>
 
     <string name="pref_title_sound">Sound</string>
 
     <string name="pref_title_vibrate">Vibrate</string>
+
+    <!-- Info -->
+
+    <string name="pref_header_info">Info</string>
+
+    <string name="pref_title_info">Info</string>
+
+    <string name="pref_title_author">Author: ProWolf</string>
+    <string name="pref_title_version">Version: v0.0.2</string>
+    <string name="pref_title_git">GitHub Repository: https://github.com/prowolf/morse-messenger</string>
 
 </resources>

@@ -3,6 +3,7 @@ package com.prowolf.morsemessenger;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,6 +14,7 @@ import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
 import android.preference.CheckBoxPreference;
 import android.view.MenuItem;
+import android.widget.Toast;
 
 import java.util.List;
 
@@ -121,6 +123,11 @@ public class SettingsActivity extends PreferenceActivity {
 
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class InfoPreferenceFragment extends PreferenceFragment {
+
+        private int devClicks = 0;
+        private final int devNot = 5;
+        private final int devMax = 8;
+
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -129,6 +136,20 @@ public class SettingsActivity extends PreferenceActivity {
 
             bindPreferenceSummaryToValue(findPreference("author"));
             bindPreferenceSummaryToValue(findPreference("version"));
+            bindPreferenceSummaryToValue(findPreference("git"));
+
+            findPreference("version").setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
+                @Override
+                public boolean onPreferenceClick(Preference preference) {
+                    devClicks++;
+                    if (devClicks == devNot) {
+                        Toast.makeText(getActivity(), R.string.dev_start, Toast.LENGTH_SHORT).show();
+                    } else if (devClicks == devMax) {
+                        Toast.makeText(getActivity(), R.string.dev_end, Toast.LENGTH_LONG).show();
+                    }
+                    return false;
+                }
+            });
         }
 
         @Override

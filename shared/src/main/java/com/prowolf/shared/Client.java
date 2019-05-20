@@ -1,6 +1,10 @@
 package com.prowolf.shared;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -19,10 +23,15 @@ public class Client implements Runnable {
     private LinkedBlockingQueue<String> sendQueue;
     private volatile boolean isRunning;
     private static final int NUM_RETRIES = 3;
+    private View progressBar;
+    private TextView attemptsText;
+    private String attempt;
+    private String attemptFailed;
+    private int connectionFailures = 0;
 
     private static final String LOG_TAG = "Client";
 
-    public Client(String uri) {
+    public Client(String uri, View progressBar, View attemptsText, String attempt, String attemptFailed) {
         try {
             this.connection = new URI(uri);
         } catch (URISyntaxException e) {
@@ -30,6 +39,10 @@ public class Client implements Runnable {
         }
         receivedQueue = new LinkedBlockingQueue<>();
         sendQueue = new LinkedBlockingQueue<>();
+        this.progressBar = progressBar;
+        this.attemptsText = (TextView) attemptsText;
+        this.attempt = attempt;
+        this.attemptFailed = attemptFailed;
     }
 
     public String getNextMessage() {
@@ -41,9 +54,17 @@ public class Client implements Runnable {
     }
 
     public void run() {
-        int connectionFailures = 0;
         while (connectionFailures < NUM_RETRIES) {
             try {
+                final Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressBar.setVisibility(View.VISIBLE);
+                        attemptsText.setText(String.format(attempt, connectionFailures + 1, NUM_RETRIES));
+                        attemptsText.setVisibility(View.VISIBLE);
+                    }
+                });
                 Socket socket = new Socket(connection.getHost(),
                         connection.getPort());
                 // from server
@@ -64,6 +85,14 @@ public class Client implements Runnable {
                         catch (java.io.IOException ex)
                         {
                             Log.w(LOG_TAG, "IO Exception: ", ex);
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    progressBar.setVisibility(View.VISIBLE);
+                                    attemptsText.setText(String.format(attempt, connectionFailures + 1, NUM_RETRIES));
+                                    attemptsText.setVisibility(View.VISIBLE);
+                                }
+                            });
                         }
                         catch (InterruptedException ex)
                         {
@@ -98,7 +127,13 @@ public class Client implements Runnable {
                         }
                     }
                 };
-
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressBar.setVisibility(View.INVISIBLE);
+                        attemptsText.setVisibility(View.INVISIBLE);
+                    }
+                });
                 setRunning(true);
                 inputReader.start();
                 outputWriter.start();
@@ -120,6 +155,15 @@ public class Client implements Runnable {
                 inputReader.join();
                 outputWriter.join();
             } catch (java.io.IOException ex) {
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressBar.setVisibility(View.VISIBLE);
+                        attemptsText.setText(String.format(attempt, connectionFailures + 1, NUM_RETRIES));
+                        attemptsText.setVisibility(View.VISIBLE);
+                    }
+                });
                 setRunning(false);
                 Log.w(LOG_TAG, "IO Exception:", ex);
                 connectionFailures++;
@@ -140,6 +184,16 @@ public class Client implements Runnable {
             }
         }
         Log.d(LOG_TAG, "failed to connect");
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                progressBar.setVisibility(View.INVISIBLE);
+                attemptsText.setText(String.format(attemptFailed, connectionFailures + 1, NUM_RETRIES));
+                attemptsText.setVisibility(View.VISIBLE);
+            }
+        });
+
     }
 
     private boolean isRunning()

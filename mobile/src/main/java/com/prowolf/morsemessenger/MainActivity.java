@@ -6,200 +6,111 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
+import android.net.ConnectivityManager;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
 import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
+import android.widget.TextView;
 
-import com.prowolf.shared.Client;
-import com.prowolf.shared.MorseGestureDetector;
+import com.prowolf.shared.BTTelegraph;
+import com.prowolf.shared.GestureListener;
+import com.prowolf.shared.IPTelegraph;
+import com.prowolf.shared.Telegraph;
+import com.prowolf.shared.TelegraphHandler;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 
 public class MainActivity extends Activity {
 
-    private static final long[] pattern = {0, 1000};
+    private Telegraph telegraph;
     private View panel;
     private View progressBar;
-    private Vibrator vibrator;
-    ToneGenerator toneGenerator;
+    private TextView attemptsText;
     private GestureDetector gestureDetector;
-    private MorseGestureDetector morseGestureDetector;
     private SharedPreferences settings;
-    private Thread networking;
-    private Client client;
-    private boolean meflash;
-    private boolean mevibrate;
-    private boolean mesound;
-    private boolean oflash;
-    private boolean ovibrate;
-    private boolean osound;
-    private boolean canactive;
-    final String ACTIVATE = "t";
-    final String DEACTIVATE = "f";
-    final String QUERRY = "q";
+
+    private final int MAX_ATTEMPTS = 3;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    settings = PreferenceManager.getDefaultSharedPreferences(MainActivity.this.getApplicationContext());
-        progressBar = findViewById(R.id.progressBar);
-        client = new Client(settings.getString("host", "tcp://127.0.0.1:8484"), progressBar, findViewById(R.id.textView), getResources().getString(R.string.attempts_text_placeholder), getResources().getString(R.string.attempts_failed));
-        networking = new Thread(client);
-        networking.start();
-        meflash = false;
-        mevibrate = false;
-        mesound = false;
-        oflash = false;
-        ovibrate = false;
-        osound = false;
-        canactive = true;
-        morseGestureDetector = new MorseGestureDetector(getApplicationContext().getResources().getDisplayMetrics());
-        gestureDetector = new GestureDetector(morseGestureDetector);
-        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        if (vibrator != null) {
-            if (vibrator.hasVibrator()) {
-                Log.v("Can Vibrate", "YES");
-            } else {
-                Log.v("Can Vibrate", "NO");
-            }
-        }
+        settings = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+
         panel = findViewById(R.id.panel);
+        progressBar = findViewById(R.id.progressBar);
+        attemptsText = findViewById(R.id.textView);
+
+        gestureDetector = new GestureDetector(getApplicationContext(), new GestureListener(getApplicationContext().getResources().getDisplayMetrics()) {
+            @Override
+            public void onQuickFling() {
+                Intent intentMain = new Intent(MainActivity.this , SettingsActivity.class);
+                MainActivity.this.startActivity(intentMain);
+            }
+        }, new Handler(getApplicationContext().getMainLooper()));
+
         panel.setOnTouchListener(new OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 gestureDetector.onTouchEvent(event);
                 if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    activate(true);
-                    client.sendMessage("t");
+                    telegraph.setOutgoing(true);
                 } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                    deactivate(true);
-                    client.sendMessage("f");
+                    telegraph.setOutgoing(false);
                     view.performClick();
                 }
                 return true;
             }
         });
-        final Handler handler = new Handler(Looper.getMainLooper());
-        handler.post(new Runnable() {
+
+        ToneGenerator toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, ToneGenerator.MAX_VOLUME);
+        Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+
+        telegraph = new IPTelegraph(new MobileTelegraphHandler(panel, vibrator, toneGenerator, settings, getApplicationContext().getResources()), (ConnectivityManager)getApplicationContext().getSystemService(Context.CONNECTIVITY_SERVICE)) {
             @Override
-            public void run() {
-                String line = client.getNextMessage();
-                if (line != null) {
-                    if (line.equals(ACTIVATE)) {
-                        activate(false);
-                    } else if (line.equals(DEACTIVATE)) {
-                        deactivate(false);
-                    }
-                }
-                if (morseGestureDetector.shouldSettings) {
-                    morseGestureDetector.shouldSettings = false;
-                    Intent intentMain = new Intent(MainActivity.this ,
-                            SettingsActivity.class);
-                    MainActivity.this.startActivity(intentMain);
-                }
-                handler.post(this);
+            protected boolean onAttemptConnect(int attempt) {
+                attemptsText.setText(String.format(getResources().getString(R.string.attempts_text_placeholder), attempt + 1, MAX_ATTEMPTS));
+                return attempt < MAX_ATTEMPTS;
             }
-        });
+        };
+
+        connect();
     }
 
     protected void onPause() {
         super.onPause();
-        deactivate(true);
-        deactivate(false);
-        canactive = false;
+        telegraph.disconnect();
     }
 
     protected void onResume(){
         super.onResume();
-        if (client.getConnection().toString() != settings.getString("host", "tcp://127.0.0.1:8484")) {
-            networking.interrupt();
-            client = new Client(settings.getString("host", "tcp://127.0.0.1:8484"), progressBar, findViewById(R.id.textView), getResources().getString(R.string.attempts_text_placeholder), getResources().getString(R.string.attempts_failed));
-            networking = new Thread(client);
-            networking.start();
-            progressBar.setVisibility(View.VISIBLE);
-        }
-        canactive = true;
-        client.sendMessage(QUERRY);
+        connect();
     }
 
-    private void activate(boolean me) {
-        if (canactive) {
-            String setting = settings.getString("flash", "Me");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off")) {
-                if (me) {
-                    meflash = true;
-                } else {
-                    oflash = true;
-                }
-                if (!(meflash && oflash))
-                    panel.setBackgroundColor(getResources().getColor(android.R.color.white));
+    private void connect() {
+        attemptsText.setVisibility(View.VISIBLE);
+        progressBar.setVisibility(View.VISIBLE);
+
+        try {
+            URI host = new URI(settings.getString("host", "tcp://127.0.0.1:8484"));
+            if (telegraph.connect(host)) {
+                attemptsText.setVisibility(View.INVISIBLE);
+            } else {
+                attemptsText.setText(getResources().getString(R.string.attempts_failed));
             }
-            setting = settings.getString("vibrate", "Others");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off")) {
-                if (me) {
-                    mevibrate = true;
-                } else {
-                    ovibrate = true;
-                }
-                if (!(mevibrate && ovibrate))
-                    vibrator.vibrate(pattern, 0);
-            }
-            setting = settings.getString("sound", "Others");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off")) {
-                if (me) {
-                    mesound = true;
-                } else {
-                    osound = true;
-                }
-                if (!(mesound && osound)) {
-                    toneGenerator = new ToneGenerator(AudioManager.STREAM_MUSIC, ToneGenerator.MAX_VOLUME);
-                    toneGenerator.startTone(ToneGenerator.TONE_CDMA_DIAL_TONE_LITE);
-                }
-            }
+            progressBar.setVisibility(View.INVISIBLE);
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
         }
     }
 
-    private void deactivate(boolean me) {
-        if (canactive) {
-            String setting = settings.getString("flash", "Me");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off") && (meflash || oflash)) {
-                if (me) {
-                    meflash = false;
-                } else {
-                    oflash = false;
-                }
-                if (!meflash && !oflash)
-                    panel.setBackgroundColor(getResources().getColor(android.R.color.black));
-            }
-            setting = settings.getString("vibrate", "Others");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off") && (mevibrate || ovibrate)) {
-                if (me) {
-                    mevibrate = false;
-                } else {
-                    ovibrate = false;
-                }
-                if (!mevibrate && !ovibrate)
-                    vibrator.cancel();
-            }
-            setting = settings.getString("sound", "Others");
-            if ((setting.equals("Me") == me || setting.equals("All")) && !setting.equals("Off") && (mesound || osound)) {
-                if (me) {
-                    mesound = false;
-                } else {
-                    osound = false;
-                }
-                if (!mesound && !osound) {
-                    toneGenerator.stopTone();
-                    toneGenerator.release();
-                }
-            }
-        }
-    }
 }

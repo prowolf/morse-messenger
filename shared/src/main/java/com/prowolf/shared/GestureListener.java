@@ -1,17 +1,15 @@
 package com.prowolf.shared;
 
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.GestureDetector.OnGestureListener;
 import android.view.MotionEvent;
 
-public class MorseGestureDetector implements OnGestureListener {
+public abstract class GestureListener implements OnGestureListener {
 
-    public boolean shouldSettings = false;
     private DisplayMetrics displayMetrics;
 
-    public MorseGestureDetector(DisplayMetrics displayMetrics) {
+    public GestureListener(DisplayMetrics displayMetrics) {
         this.displayMetrics = displayMetrics;
     }
 
@@ -24,11 +22,14 @@ public class MorseGestureDetector implements OnGestureListener {
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
                            float velocityY) {
-        float x = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_MM, 500, displayMetrics);
-        if (Math.sqrt(velocityX * velocityX + velocityY * velocityY) >= x)
-            shouldSettings = true;
+        float c = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_MM, 500, displayMetrics);
+        if (Math.sqrt(velocityX * velocityX + velocityY * velocityY) >= c) {
+            onQuickFling();
+        }
         return true;
     }
+
+    public abstract void onQuickFling();
 
     @Override
     public void onLongPress(MotionEvent e) {
